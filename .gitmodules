@@ -1,0 +1,4 @@
+[submodule ".gitlab-ci-functions"]
+	path = .gitlab-ci-functions
+	url = https://github.com/microdevops-com/gitlab-ci-functions.git
+	branch = master

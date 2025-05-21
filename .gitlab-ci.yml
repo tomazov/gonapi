@@ -1,0 +1,71 @@
+stages:
+  - test         # 🆕 Додали новий етап
+  - app_image
+  - app_deploy
+
+variables:
+  GIT_SUBMODULE_STRATEGY: normal
+  DOCKER_REGISTRY_PORT: ":5001"
+
+before_script:
+  - . .gitlab-ci-functions/docker.sh
+  - . .gitlab-ci-functions/misc.sh
+  - registry_login
+
+##########################
+# 🧪 JOB: Автотести
+##########################
+app_test:
+  image: golang:1.24
+  stage: test
+  tags:
+    - gitlab-runner1.odev.io
+  script:
+    - echo "🔍 Running tests..."
+    - go mod tidy
+    - go test ./... -v -cover
+  artifacts:
+    when: always
+    paths:
+      - coverage.out
+    reports:
+      junit: junit.xml
+
+##########################
+# 🔨 JOB: Build
+##########################
+.app_image:
+  tags:
+    - gitlab-runner1.odev.io
+  stage: app_image
+  script:
+    - cp -f $env_file .env
+    - docker_build_file_args $IMAGE $DOCKER_FILE "--build-arg CI_COMMIT_REF_SLUG=$CI_COMMIT_REF_SLUG --build-arg CI_SERVER_HOST=$CI_SERVER_HOST --build-arg CI_PROJECT_PATH=$CI_PROJECT_PATH --build-arg PHP_VER=$PHP_VER --build-arg DOCKER_REGISTRY_PORT=$DOCKER_REGISTRY_PORT"
+    - docker push $IMAGE
+
+app_dev:
+  variables:
+    IMAGE: $CI_REGISTRY/$CI_PROJECT_PATH/app_dev:$CI_COMMIT_REF_SLUG
+    DOCKER_FILE: Dockerfile
+    env_file: .env.dev
+  extends: .app_image
+
+##########################
+# 🚀 JOB: Deploy
+##########################
+.deploy_app:
+  tags:
+    - gitlab-runner1.odev.io
+  stage: app_deploy
+  when: manual
+  script:
+    - if [ -n "$DEPLOY_DOCKER_SERVER" ]; then true; else false; fi
+    - if [ -n "$DEPLOY_APP" ]; then true; else false; fi
+    - ssh_salt_call_app_docker $DEPLOY_DOCKER_SERVER $IMAGE $DEPLOY_APP
+
+deploy_app_tomazov:
+  environment:
+    name: tomazov
+  variables:
+    IMAGE: $CI_REGISTRY/$CI_PROJECT_PATH/app_dev:$CI_COMMIT_REF_SLUG
+  extends: .deploy_app

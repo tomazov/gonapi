@@ -1,0 +1,14 @@
+[Unit]
+Description=napi.otpusk.tomazov.dev09.odev.io
+ConditionPathExist=/var/www/tomazov/tomazov.napi.otpusk/main
+After=network.target
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5s
+WorkingDirectory=/var/www/tomazov/tomazov.napi.otpusk
+ExecStart=/var/www/tomazov/tomazov.napi.otpusk/main
+
+[Install]
+WantedBy=multi-user.target
